@@ -8,7 +8,7 @@ I'm at the environment that needs to monitor multiple computer screens simultane
 
 I find out that it can create a new window monitor for each source, but that's time consuming for multiple screens to create. I decided to write my own.
 
-**Note: This project is made for internal use and for education It is not ready for production use.**
+**Note: This project is made for internal use and for education. It is not ready for production use.**
 
 ## Components
 
@@ -52,6 +52,8 @@ You must install the NDI™ 5 Runtime before running, which are available on eac
 - Windows: http://ndi.link/NDIRedistV5
 - MacOS: http://ndi.link/NDIRedistV5Apple
 - Linux: https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz
+
+Alternatively, you can NDI™ 5 Tools, which contain multiple useful features. Available at https://ndi.video/tools/ndi-core-suite/
 
 When you first launch the executable, the system may ask for adding an exception to Windows Firewall. You should allow it, and restart the program again.
 
