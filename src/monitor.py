@@ -150,7 +150,7 @@ class NDIConsoleApp:
                 if self.sourceRecievers[i]["pos"] is None:
                     previousPos = self.sourceRecievers[i - 1]["pos"]
                     if previousPos is None:
-                        previousPos = (0, 0)
+                        previousPos = (-targetSize[0], 0)
 
                     self.sourceRecievers[i]["pos"] = (
                         previousPos[0] + targetSize[0], previousPos[1])
