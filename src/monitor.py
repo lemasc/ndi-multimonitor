@@ -108,7 +108,7 @@ class NDIConsoleApp:
         pygame.init()
         pygame.display.set_caption('NDI Multi Monitor')
 
-        font = pygame.font.SysFont('Consolas', 12)
+        font = pygame.font.SysFont('Consolas', 36)
 
         defaultMonitorFlags = pygame.RESIZABLE
         defaultMonitorSize = (1366, 768)
@@ -118,8 +118,17 @@ class NDIConsoleApp:
 
         targetSize = (defaultMonitorSize[0]/3, defaultMonitorSize[1]/3)
 
-        secondary_surface = pygame.Surface(
-            defaultMonitorSize)
+        for i in range(len(self.sourceRecievers)):
+            # Create a new text surface with the name of the source
+            text = font.render(
+                self.sourceRecievers[i]["name"], True, (0, 0, 0))
+            # Create a new surface with the same size as the text, including the padding
+            padding = int(font.get_height() / 2)
+            textSurface = pygame.Surface(
+                (text.get_width() + padding, text.get_height() + padding), pygame.SRCALPHA)
+            textSurface.fill((255, 255, 255, 128))
+            textSurface.blit(text, (padding/2, padding/2))
+            self.sourceRecievers[i]["textSurface"] = textSurface
 
         while self.showMonitor:
             for event in pygame.event.get():
@@ -129,24 +138,15 @@ class NDIConsoleApp:
                     dimension = getClosest16_9Dimension(event.dict['size'])
                     self.monitor = pygame.display.set_mode(
                         dimension, pygame.RESIZABLE)
-                    targetSize = (dimension[0]/3, dimension[1]/3)
-                    secondary_surface = pygame.Surface(
-                        dimension)
-                    # Recreate the font with the new size based on the new dimension
-                    font = pygame.font.SysFont(
-                        'Consolas', ceil(12 * dimension[0] / defaultMonitorSize[0]))
-
                     # Reset the position of the images
+                    targetSize = (dimension[0]/3, dimension[1]/3)
                     for i in range(len(self.sourceRecievers)):
                         self.sourceRecievers[i]["pos"] = None
 
-            # secondary_surface.fill((0, 0, 0))
-
             for i in range(len(self.sourceRecievers)):
+                # Receive a video frame from NDI source
                 t, v, _, _ = ndi.recv_capture_v2(
                     self.sourceRecievers[i]["source"], 0)
-                if t != ndi.FRAME_TYPE_VIDEO:
-                    continue
                 # Calculate the position of the image on the monitor if it is not set
                 # We want to display the images in a grid 3x3
                 if self.sourceRecievers[i]["pos"] is None:
@@ -160,24 +160,29 @@ class NDIConsoleApp:
                         self.sourceRecievers[i]["pos"] = (
                             0, previousPos[1] + targetSize[1])
 
-                image = pygame.image.frombuffer(
-                    v.data, (v.xres, v.yres), 'BGRA')
-                ndi.recv_free_video_v2(self.sourceRecievers[i]["source"], v)
-                secondary_surface.blit(pygame.transform.scale(
-                    image, targetSize), self.sourceRecievers[i]["pos"])
-                # Insert the text of the source name into the image
-                text = font.render(
-                    self.sourceRecievers[i]["name"], True, (0, 0, 0))
-                # Create a new surface with the same size as the text, including the padding
-                textSurface = pygame.Surface(
-                    (text.get_width() + 10, text.get_height() + 10), pygame.SRCALPHA)
-                textSurface.fill((255, 255, 255, 128))
-                textSurface.blit(text, (5, 5))
-                secondary_surface.blit(
-                    textSurface, self.sourceRecievers[i]["pos"])
+                if t == ndi.FRAME_TYPE_VIDEO:
+                    # Convert the image frame to a pygame surface
+                    image = pygame.image.frombuffer(
+                        v.data, (v.xres, v.yres), 'BGRA')
+                    ndi.recv_free_video_v2(
+                        self.sourceRecievers[i]["source"], v)
+                    # Create a new surface with a "higher" resolution, so that it can be downscaled safely based on the monitor size.
+                    self.sourceRecievers[i]["surface"] = pygame.Surface(
+                        (1280, 720), pygame.SRCALPHA)
+                    # Scale the image to fit the surface and blit it
+                    self.sourceRecievers[i]["surface"].blit(
+                        pygame.transform.scale(image, (1280, 720)), (0, 0))
+                    # Blit the created text surface on top of the image
+                    self.sourceRecievers[i]["surface"].blit(
+                        self.sourceRecievers[i]["textSurface"], (0, 0))
 
-            # Blit the entire secondary surface onto the screen
-            self.monitor.blit(secondary_surface, (0, 0))
+                # Blit the current source's surface on the monitor, even if there's no new video frame received
+                # That's why we assigned it to a variable
+                if self.sourceRecievers[i]["surface"] is not None:
+                    self.monitor.blit(
+                        pygame.transform.scale(
+                            self.sourceRecievers[i]["surface"], targetSize), self.sourceRecievers[i]["pos"])
+
             pygame.display.update()
 
         self.destroy_receive_sources()
@@ -192,7 +197,8 @@ class NDIConsoleApp:
             receiver = {
                 "name": source.ndi_name,
                 "source": ndi.recv_create_v3(recv_create_desc),
-                "pos": None
+                "pos": None,
+                "surface": None
             }
             if (receiver["source"] is None):
                 ndi.recv_destroy(receiver["source"])
